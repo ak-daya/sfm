@@ -9,6 +9,8 @@ from os import listdir
 from os.path import dirname, abspath
 from skimage.io import imread, imshow
 from skimage import transform
+from EssentialMatrixFromFundamentalMatrix import EssentialMatrix
+from ExtractCameraPose import CameraPoseEstimation
 
 def LoadImagesFromFolder(folder):
 	images = []
@@ -61,6 +63,13 @@ def main():
         ImgPairs = Matching_pairs(file, index+1)
         Matchpairs.append(ImgPairs)
     print(returnpairs(Matchpairs, [3,1]))
+    
+    FundamentalMatrix = np.array([[0.1, 0.2, -0.3], [0.4, 0.5, -0.6], [0.7, 0.8, -0.9]])
+    essentialMatrix = EssentialMatrix(intrinsic_matrix, FundamentalMatrix)
+    print(essentialMatrix)
+    pose = CameraPoseEstimation(essentialMatrix)
+    print(pose)
+    
     
     
     
