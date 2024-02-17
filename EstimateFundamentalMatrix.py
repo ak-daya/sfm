@@ -100,14 +100,14 @@ def main():
 		x = Homogenize(np.rint(np.random.rand(10,2)*10))
 		xPrime = Homogenize(np.rint(np.random.rand(10,2)*10))
 		
-		x_pruned, xPrime_pruned = OutlierRejectionRANSAC(x, xPrime)
+		# x_pruned, xPrime_pruned = OutlierRejectionRANSAC(x, xPrime)
 
 		F = EstimateFundamentalMatrix(x, xPrime)
-		F_new = EstimateFundamentalMatrix(x_pruned, xPrime_pruned)
+		# F_new = EstimateFundamentalMatrix(x_pruned, xPrime_pruned)
 
 		print(F)
 		print("----")
-		print(F_new)
+		# print(F_new)
 
 		# F = EstimateFundamentalMatrix(x, xPrime)
 		# print(np.linalg.matrix_rank(F))
