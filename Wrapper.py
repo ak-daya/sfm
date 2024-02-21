@@ -118,7 +118,7 @@ def main():
             depthlen = []
             depthpoints =[[] for _ in range(4)]
             for i in range(4):
-                camera_params = [intrinsic_matrix, C1, R1, R_s[i], C_s[i]]
+                camera_params = [intrinsic_matrix, C1, R1, C_s[i], R_s[i]]
                 points = TriangulateDepth_Linear(camera_params, best_points1, best_points2)
                 for point in points:
                     if CheiralityCondition(C_s[i], R_s[i], point):
