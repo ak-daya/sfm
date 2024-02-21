@@ -6,12 +6,12 @@
 import numpy as np
 import random
 
-def NormalizeCoordinates(homogenizedPoints):
-	centroid = np.mean(homogenizedPoints, axis=0)
-	translation = np.array([[1, 0, centroid[0]], [0, 1, centroid[1]], [0, 0, 1]])
-	scale_u, scale_v, _ = np.std(homogenizedPoints - centroid, axis=0)
-	transform = np.array([[scale_u, 0, 0],[0, scale_v, 0],[0, 0, 1]]) @ translation
-	normalizedPoints = homogenizedPoints @ transform.T
+def NormalizeCoordinates(points):
+	centroid = np.mean(points, axis=0)
+	scale = 2*points.shape[0]/(((points-centroid)**2).sum(axis=1).sum(axis=0))
+	translation = np.array([[1, 0, -centroid[0]], [0, 1, -centroid[1]], [0, 0, 1]])
+	transform = np.array([[scale, 0, 0],[0, scale, 0],[0, 0, 1]]) @ translation
+	normalizedPoints = Homogenize(points) @ transform.T
 	
 	return normalizedPoints, transform
 
@@ -38,9 +38,9 @@ def EstimateFundamentalMatrix(points1, points2):
 	points1 = points1[:n]
 	points2 = points2[:n]
 	
-	# If normalized
-	# points1, T1 = NormalizeCoordinates(points1)
-	# points2, T2 = NormalizeCoordinates(points2)
+	# Preconditioning: normalization
+	points1, T1 = NormalizeCoordinates(points1)
+	points2, T2 = NormalizeCoordinates(points2)
 
 	# Construct A matrix
 	A = []
@@ -50,16 +50,16 @@ def EstimateFundamentalMatrix(points1, points2):
 			A.append([x1*x2, x1*y2, x1, y1*x2, y1*y2, y1, x2, y2, 1])
 	A = np.array(A)
 
-	# SVD and enforce F rank = 2 by setting A's last singular value = 0
+	# Find F_hat by least squares of A 
 	_, _, V_T = np.linalg.svd(A)
-	F = V_T[:, -1].reshape((3,3))
+	F_hat = V_T[-1, :].reshape((3,3))
 
-	U, S, V_T = np.linalg.svd(F, full_matrices=False)
+	U, S, V_T = np.linalg.svd(F_hat, full_matrices=False)
 	S[-1] = 0
-	F = U @ np.diag(S) @ V_T
+	F_hat = U @ np.diag(S) @ V_T
 
-	# If normalized
-	# F = T2.T @ F @ T1
+	# De-normalize F_hat
+	F = T2.T @ F_hat @ T1
 	
 	return F
 
@@ -97,28 +97,28 @@ def OutlierRejectionRANSAC(points1, points2, iter=1000, eps=0.05, break_percenta
 
 def main():
 		
-		x = Homogenize(np.rint(np.random.rand(10,2)*10))
-		xPrime = Homogenize(np.rint(np.random.rand(10,2)*10))
-		
-		# x_pruned, xPrime_pruned = OutlierRejectionRANSAC(x, xPrime)
+	x = (np.rint(np.random.rand(10,2)*10))
+	xPrime = (np.rint(np.random.rand(10,2)*10))
+	
+	# x_pruned, xPrime_pruned = OutlierRejectionRANSAC(x, xPrime)
 
-		F = EstimateFundamentalMatrix(x, xPrime)
-		# F_new = EstimateFundamentalMatrix(x_pruned, xPrime_pruned)
+	F = EstimateFundamentalMatrix(x, xPrime)
+	# F_new = EstimateFundamentalMatrix(x_pruned, xPrime_pruned)
 
-		print(F)
-		print("----")
-		# print(F_new)
+	print(F)
+	print("----")
+	# print(F_new)
 
-		# F = EstimateFundamentalMatrix(x, xPrime)
-		# print(np.linalg.matrix_rank(F))
-		# # Validation
-		# print("Validation")
-		# test_idx = random.sample(range(0, len(x)), len(x)//2)
-		# for i in test_idx:
-		# 		x1 = (x[i, :])
-		# 		x2 = (xPrime[i, :])
-		# 		res = x2 @ F @ x1
-		# 		print(f"Result: {res}")
+	# F = EstimateFundamentalMatrix(x, xPrime)
+	# print(np.linalg.matrix_rank(F))
+	# # Validation
+	# print("Validation")
+	# test_idx = random.sample(range(0, len(x)), len(x)//2)
+	# for i in test_idx:
+	# 		x1 = (x[i, :])
+	# 		x2 = (xPrime[i, :])
+	# 		res = x2 @ F @ x1
+	# 		print(f"Result: {res}")
 
 if __name__ == "__main__":
 		main()
