@@ -5,6 +5,8 @@
 
 import numpy as np
 import random
+import cv2
+import matplotlib.pyplot as plt
 
 def NormalizeCoordinates(points):
 	centroid = np.mean(points, axis=0)
@@ -25,75 +27,103 @@ def Homogenize(coordinates):
 		hom_coordinates[:, :-1] = coordinates
 	return hom_coordinates
 
-def EstimateFundamentalMatrix(points1, points2):
+def EstimateFundamentalMatrix(points1, points2, normalize=False):
 	"""
 	Arguments:
 		Points1: Homogeneous corr. points (N, 3)
 		Points2: Homogeneous corr. points (N, 3)
 	Returns:
-		F: Fundamental matrix (3,3)
+		F: Fundamental matrix (3,3) s.t. epipolar constraint is met
 	"""
-	assert len(points1) == len(points2), "Number of correspondences are unequal, using least common set"
-	n = np.min([len(points1), len(points2)])
-	points1 = points1[:n]
-	points2 = points2[:n]
+	n = points1.shape[0]
 	
-	# Preconditioning: normalization
-	points1, T1 = NormalizeCoordinates(points1)
-	points2, T2 = NormalizeCoordinates(points2)
+	# Preconditioning: normalization and homogenization
+	if normalize:
+		points1, T1 = NormalizeCoordinates(points1)
+		points2, T2 = NormalizeCoordinates(points2)
+	else:
+		points1 = Homogenize(points1)
+		points2 = Homogenize(points2)
 
 	# Construct A matrix
 	A = []
 	for i in range(n):
 			x1, y1, _ = points1[i]
 			x2, y2, _ = points2[i]
-			A.append([x1*x2, x1*y2, x1, y1*x2, y1*y2, y1, x2, y2, 1])
+			A.append([x1*x2, y1*x2, x2, x1*y2, y1*y2, y2, x1, y1, 1])
+			# [x1*x2, x1*y2, x1, y1*x2, y1*y2, y1, x2, y2, 1
 	A = np.array(A)
 
 	# Find F_hat by least squares of A 
 	_, _, V_T = np.linalg.svd(A)
 	F_hat = V_T[-1, :].reshape((3,3))
 
-	U, S, V_T = np.linalg.svd(F_hat, full_matrices=False)
+	# Applying rank constraint
+	U, S, V_T = np.linalg.svd(F_hat)
 	S[-1] = 0
 	F_hat = U @ np.diag(S) @ V_T
 
 	# De-normalize F_hat
-	F = T2.T @ F_hat @ T1
+	if normalize:
+		F = T2.T @ F_hat @ T1
+	else:
+		F = F_hat
 	
 	return F
 
-def OutlierRejectionRANSAC(points1, points2, iter=1000, eps=0.05, break_percentage=0.9):
-	max_inliers = 0
-	best_inlier_idxs = []
-	num_points = points1.shape[0]
-	early_break_condition = round(break_percentage * num_points)
+def GetEpipolarPoints(F):
+	"""
+	F: 3x3 fundamental matrix
+	Return:
 	
-	for _ in range(iter):
-		# Choose 8 correspondences randomly
-		rand_idx = random.sample(range(num_points), 8)
-		points1_sample = points1[rand_idx]
-		points2_sample = points2[rand_idx]
+	"""
+	U, _, V_T = np.linalg.svd(F)
 
-		F = EstimateFundamentalMatrix(points1_sample, points2_sample)
-		inlier_idxs = []
-		
-		for j in range(num_points):
-			if abs(points2[j] @ F @ points1[j]) < eps:
-				inlier_idxs.append(j)
+	epipole1 = V_T[-1,:]
+	epipole2 = U[:,-1]
 
-		if len(inlier_idxs) > max_inliers:
-			max_inliers = len(inlier_idxs)
-			best_inlier_idxs = inlier_idxs
-		
-		# Early break condition
-		if max_inliers >= early_break_condition:
-			break
-	
-	best_points1 = points1[best_inlier_idxs]	 
-	best_points2 = points2[best_inlier_idxs]	 
+	return epipole1, epipole2
 
-	return best_points1, best_points2
+def GetEpilines(F, points1, points2):
+	"""
+	pointx: point correspondences (2,)
+	F: 3 x 3 fundamental matrix
+
+	"""
+	epiline1 = points1 @ F.T
+	epiline2 = points2 @ F
+	return epiline1, epiline2
+
+# Debugging not used:
+def Drawlines(img1,img2,lines,pts1,pts2):
+	''' img1 - image on which we draw the epilines for the points in img2
+		lines - corresponding epilines '''
+	_,c = img1.shape
+	img1 = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+	img2 = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
+	for r,pt1,pt2 in zip(lines,pts1,pts2):
+		color = tuple(np.random.randint(0,255,3).tolist())
+		x0,y0 = map(int, [0, -r[2]/r[1] ])
+		x1,y1 = map(int, [c, -(r[2]+r[0]*c)/r[1] ])
+		img1 = cv2.line(img1, (x0,y0), (x1,y1), color,1)
+		img1 = cv2.circle(img1,tuple(pt1),5,color,-1)
+		img2 = cv2.circle(img2,tuple(pt2),5,color,-1)
+	return img1,img2
+
+def FindEpilines(F, img1, img2, pts1, pts2):
+	# Find epilines corresponding to points in right image (second image) and
+	# drawing its lines on left image
+	lines1 = cv2.computeCorrespondEpilines(pts2.reshape(-1,1,2), 2,F)
+	lines1 = lines1.reshape(-1,3)
+	img5, _ = Drawlines(img1,img2,lines1,pts1,pts2)
+	# Find epilines corresponding to points in left image (first image) and
+	# drawing its lines on right image
+	lines2 = cv2.computeCorrespondEpilines(pts1.reshape(-1,1,2), 1,F)
+	lines2 = lines2.reshape(-1,3)
+	img3, _ = Drawlines(img2,img1,lines2,pts2,pts1)
+	plt.subplot(121),plt.imshow(img5)
+	plt.subplot(122),plt.imshow(img3)
+	plt.show()
 
 def main():
 		

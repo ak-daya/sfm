@@ -5,7 +5,11 @@ from LinearTriangulation import TriangulateDepth_Linear
 
 def loss_fn(WorldPts, camera_params, X1, X2):
 	K, C1, R1, C2, R2 = camera_params
+<<<<<<< HEAD
 	# WorldPts = WorldPts.reshape(-1, 3)
+=======
+	WorldPts = WorldPts.reshape((-1,3))
+>>>>>>> eab202f7deef4e02067550e319d44a544980a072
 
 	I = np.identity(3)
 	P1 = K @ R1 @ np.concatenate([I, -C1.reshape((3,1))], axis=1)
@@ -48,6 +52,7 @@ def TriangulateDepth_NonLinear(camera_params, X1, X2, x0_worldPoints):
 	# x0_worldPoints = TriangulateDepth_Linear(camera_params, X1, X2)
 	
 	# Optimize
+<<<<<<< HEAD
 	optimized_worldPoints = []
 	print("Reprojection Error Before Optimization:")
 	Loss = 0
@@ -58,6 +63,14 @@ def TriangulateDepth_NonLinear(camera_params, X1, X2, x0_worldPoints):
 	Loss = Loss/len(x0_worldPoints)
 	print(Loss)
 		
+=======
+	model = opt.least_squares(fun=objective_fn, 
+						 	x0=x0_worldPoints, 
+							method="lm", 
+							args=[camera_params, X1, X2]
+							)
+	worldPoints = model.x.reshape((-1,3))
+>>>>>>> eab202f7deef4e02067550e319d44a544980a072
 
 	print("Optimizing non-linear triangulation...")
 	
