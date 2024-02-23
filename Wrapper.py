@@ -15,6 +15,7 @@ from EstimateFundamentalMatrix import *
 from GetInlierRANSAC import *
 from DisambiguateCameraPose import *
 from rotationmatrix import *
+from NonlinearTriangulation import *
 from Visualization import *
 
 def LoadImagesFromFolder(folder):
@@ -67,10 +68,9 @@ def drawmatches(img1, img2, coordpairs1, coordpairs2):
 
 
 def main():
-    # Read in images, correspondences, intrinsic matrix
-    basePath = (dirname(abspath(__file__)))
-    image_path = basePath + f"\\Data\\sfmdata"
-    txtdata_path = basePath + f"\\Data\\sfmtxtdata"
+    basePath = dirname(dirname(abspath(__file__)))
+    image_path = basePath + f"\\sfmdata"
+    txtdata_path = basePath + f"\\sfmtxtdata"
     
     images = LoadImagesFromFolder(image_path)
     intrinsic_matrix = np.array([[531.122155322710, 0.0, 407.192550839899], [0.0, 531.541737503901, 313.308715048366], [0.0, 0.0, 1.0]])
@@ -81,14 +81,7 @@ def main():
         ImgPairs, colorpairs = Matching_pairs(file, index+1)
         Matchpairs.append(ImgPairs)
         Colorpairs.append(colorpairs)
-    
-    # print(returnpairs(Matchpairs, [3,1]))
-    # FundamentalMatrix = np.array([[0.1, 0.2, -0.3], [0.4, 0.5, -0.6], [0.7, 0.8, -0.9]])
-    # essentialMatrix = EssentialMatrix(intrinsic_matrix, FundamentalMatrix)
-    # print(essentialMatrix)
-    # pose = CameraPoseEstimation(essentialMatrix)
-    # print(pose)
-    
+
     for i in range (0,len(images)-1):
         for j in range(1,len(images)):
             coord_pair = returnpairs(Matchpairs, [i+1,j+1])
@@ -96,81 +89,65 @@ def main():
             coordpairs1 = np.array(coordpairs1)
             coordpairs2 = [pair[1] for pair in coord_pair]
             coordpairs2 = np.array(coordpairs2)
+            best_points1H, best_points2H = HomographyRansac(coord_pair)
+            drawmatches(images[i], images[j], coordpairs1, coordpairs2)
+            drawmatches(images[i], images[j], best_points1H, best_points2H)
+            best_points1, best_points2 = OutlierRejectionRANSAC(np.array(best_points1H), np.array(best_points2H))
+            rand_idx = random.sample(range(best_points1.shape[0]), 30)
+            coordpairs1_sample = best_points1[rand_idx]
+            coordpairs2_sample = best_points2[rand_idx]
             
-            # Debug
-            # print(f"Number of matches: {len(coordpairs1)}")
-            
-            best_points1, best_points2 = OutlierRejectionRANSAC(np.array(coordpairs1), np.array(coordpairs2), break_percentage=0.99)
-            
-            # Debug
-            print(f"Number of pruned matches: {len(best_points1)}")
-
-            # Visualize sample of best matches
-            # rand_idx = random.sample(range(best_points1.shape[0]), 16)
-            # coordpairs1_sample = best_points1[rand_idx]
-            # coordpairs2_sample = best_points2[rand_idx]
-            # drawmatches(images[i], images[j], coordpairs1_sample, coordpairs2_sample)
-            
-            # Compute fundamnetal matrix over best matches
-            Fundamental_matrix = EstimateFundamentalMatrix(best_points1, best_points2, normalize=True)
-            # print("F= \n",Fundamental_matrix)
-            # FundamentalMatrixCV2, _ = cv2.findFundamentalMat(best_points1, best_points2, cv2.FM_RANSAC)
-            
-            # Testing for epipolar constraint
-            # best_points1_hom = Homogenize(best_points1)
-            # best_points2_hom = Homogenize(best_points2)
-            # epiConstraint1 = 0
-            # epiConstraint2 = 0
-            # for i in range(best_points1_hom.shape[0]):
-            #     epiConstraint1 += best_points2_hom[i] @ Fundamental_matrix @ best_points1_hom[i]
-            #     epiConstraint2 += best_points2_hom[i] @ FundamentalMatrixCV2 @ best_points1_hom[i]
-            # avgEpiConstraint1 = epiConstraint1/best_points1_hom.shape[0]
-            # avgEpiConstraint2 = epiConstraint2/best_points1_hom.shape[0]
-            # print(f"Avg Epipolar Constraint Ours: {avgEpiConstraint1}")
-            # print(f"Avg Epipolar Constraint CV2: {avgEpiConstraint2}")
+            drawmatches(images[i], images[j], best_points1, best_points2)
+            drawmatches(images[i], images[j], coordpairs1_sample, coordpairs2_sample)
+            Fundamental_matrix = EstimateFundamentalMatrix(best_points1, best_points2)
+            FundamentalMatrixCV2, mask = cv2.findFundamentalMat(best_points1, best_points2, cv2.FM_RANSAC)
+            value = 0
+            for i in range(best_points1.shape[0]):
+                value += np.array([best_points2[i,0], best_points2[i,1], 1])@Fundamental_matrix@np.array([[best_points1[i,0]],[best_points1[i,1]],[1]])
+            avgVal = value/best_points1.shape[0]
+            print(avgVal)
+            print(Fundamental_matrix)
+            valuecv2 = np.array([best_points2[0,0], best_points2[0,1], 1])@FundamentalMatrixCV2@np.array([[best_points1[1,0]],[best_points1[1,1]],[1]])
+            print(FundamentalMatrixCV2)
+            print(valuecv2)
             
             essentialMatrix = EssentialMatrix(intrinsic_matrix, Fundamental_matrix)
-            # print("E: \n", essentialMatrix)
-
             R_s, C_s = CameraPoseEstimation(essentialMatrix)
-            
             RealPose = np.zeros((4,4))
-            
-            # Relative left camera pose at origin
-            R_origin = np.identity(3)
-            C_origin = np.array([0,0,0])
-            
+            R1 = np.identity(3)
+            C1 = np.array([0,0,0])
             depthlen = []
-            depthpoints =[[] for _ in range(4)]
-
-            all_depth_points = []
-
-            for i in range(len(R_s)):
-                points = TriangulateDepth_Linear(C_s[i], R_s[i], intrinsic_matrix, best_points1, best_points2)
-
-                # For plotting
-                all_depth_points.append(points)
-
-                # Cheirality check
+            depthpoints =[]
+            depthpointsCheralityCheck = [[] for _ in range(4)]
+            for i in range(4):
+                camera_params = [intrinsic_matrix, C1, R1, C_s[i], R_s[i]]
+                points, error = TriangulateDepth_Linear(camera_params, best_points1, best_points2)
+                valid_points = []
+                for j, point in enumerate(points):
+                    if -100<point[0]<100 and -100<point[1]<100 and -100<point[2]<100:
+                        valid_points.append(point)
+                depthpoints.append(valid_points)
                 for point in points:
                     if CheiralityCondition(C_s[i], R_s[i], point):
-                        depthpoints[i].append(point)
-
-                # Keep count of cheirality condition check
-                depthlen.append(len(depthpoints[i]))
-            
-            # Visualize points
-            Plot3DPointSets(all_depth_points, ['brown','blue','pink','purple'], 
-                            ['Pose 1', 'Pose 2', 'Pose 3', 'Pose 4'])
-
+                        depthpointsCheralityCheck[i].append(point)
+                        
+            for i in range(4):
+                depthlen.append(len(depthpointsCheralityCheck[i]))
+                
+            Visualizer4R(depthpoints)
             max_index = depthlen.index(max(depthlen))
             RealPose[0:3,0:3] = R_s[max_index]
             RealPose[0:3,3] = C_s[max_index]
             RealPose[3,3] = 1
-            plot_rotation(RealPose)
-            depthpoints = np.array(depthpoints[max_index])
+            visualizer(depthpointsCheralityCheck[max_index])
             
-            print(depthpoints)
+            best_pts3d = depthpointsCheralityCheck[max_index]
+            
+            pointsLinear, error = TriangulateDepth_Linear([intrinsic_matrix, C1, R1, C_s[max_index], R_s[max_index]], best_points1, best_points2)
+            #non-linear triangulation
+            pointsNonLinear = TriangulateDepth_NonLinear([intrinsic_matrix, C1, R1, C_s[max_index], R_s[max_index]], best_points1, best_points2, pointsLinear)
+            visualizer(pointsNonLinear)
+            
             break
         break
             
