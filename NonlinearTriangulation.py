@@ -5,6 +5,7 @@ from LinearTriangulation import TriangulateDepth_Linear
 
 def loss_fn(WorldPts, camera_params, X1, X2):
 	K, C1, R1, C2, R2 = camera_params
+	WorldPts = WorldPts.reshape((-1,3))
 
 	I = np.identity(3)
 	P1 = K @ R1 @ np.concatenate([I, -C1], axis=1)
@@ -58,6 +59,6 @@ def TriangulateDepth_NonLinear(camera_params, X1, X2):
 							method="lm", 
 							args=[camera_params, X1, X2]
 							)
-	worldPoints = model.x
+	worldPoints = model.x.reshape((-1,3))
 
 	return worldPoints
