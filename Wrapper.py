@@ -19,6 +19,7 @@ from DataLoader import *
 from LinearTriangulation import *   
 from NonlinearTriangulation import *
 from PnPRANSAC import *
+from NonlinearPnP import *
 
 def main():
     # Read in images, correspondences, intrinsic matrix
@@ -31,8 +32,9 @@ def main():
     MatchPairs_text = LoadTextFromFolder(txtdata_path)
     Matchpairs = []
     Colorpairs = []
+    MatchIndex = []
     for index, file in enumerate(MatchPairs_text):
-        ImgPairs, colorpairs = Matching_pairs(file, index+1)
+        ImgPairs, colorpairs= Matching_pairs(file, index+1)
         Matchpairs.append(ImgPairs)
         Colorpairs.append(colorpairs)
     
@@ -113,8 +115,21 @@ def main():
 
     # Non-linear Triangulation
     X0 = linearDepth
+    
+    linearDepthPts = LinearTriangulation(K, C_O, R_O, C, R, best_points1, best_points2)
+    P = GetProjectionMatrix(C, R, K)
+    U_pred = World2Image(X0, P)
+    ErrorPreOpt = ReprojectionError(U_pred, best_points2)
+    
+    print(f"Error Pre-Optimization: {ErrorPreOpt.mean()}")
+    
+    
 
     nonlinearDepth = NonLinearTriangulation(X0, K, C_O, R_O, C, R, best_points1, best_points2)
+    
+    U_predOpt = World2Image(nonlinearDepth, P)
+    ErrorPostOpt = ReprojectionError(U_predOpt, best_points2)
+    print(f"Error Post-Optimization: {ErrorPostOpt.mean()}")
 
     # Visualize Linear and Non-Linear Triangulation
     Plot3DPointSets([X0, nonlinearDepth], ['blue','red'], ['Linear', 'Non-Linear'], 
@@ -155,9 +170,64 @@ def main():
     # visualizer(pointsNonLinear)
 
     # best_pts3d = depthpointsCheralityCheck[max_index]
-
+    TotalDepthPoints = []
+    TotalDepthPoints.append(nonlinearDepth)
+    Poses = [[] for _ in range(2)]   #poses = [[R_set][C_set]]
+    best_points = []    
+    best_points.append(best_points1)
+    best_points.append(best_points2) 
     
-    # Images 2-5
+    for i in range(3, 6):
+        coord_pair = np.array(returnpairs(Matchpairs,[1,i]))
+        coordpairs1 = coord_pair[:,0,:] #[pair[0] for pair in coord_pair]
+        coordpairs2 = coord_pair[:,1,:] #[pair[0] for pair in coord_pair]
+        best_points1, best_points2 = OutlierRejectionRANSAC(coordpairs1, coordpairs2, break_percentage=0.9)
+        print(f"Number of pruned matches: {len(best_points1)}")
+
+        fundamentalMatrix = EstimateFundamentalMatrix(best_points1, best_points2, normalize=False)
+         
+        essentialMatrix = EssentialMatrixFromFundamentalMatrix(K, fundamentalMatrix)
+        
+        C_s, R_s = ExtractCameraPose(essentialMatrix)
+
+        C_O = np.zeros((3,1))
+        R_O = np.identity(3)
+
+        linearDepthPts = []
+        for i in range(len(R_s)):
+            points = LinearTriangulation(K, C_O, R_O, C_s[i], R_s[i], best_points1, best_points2)
+            linearDepthPts.append(points)
+            
+        C, R, linearDepth = DisambiguateCameraPose(C_s, R_s, linearDepthPts)
+        Poses[0].append(R)
+        Poses[1].append(C)
+        X0 = linearDepth
+    
+        linearDepthPts = LinearTriangulation(K, C_O, R_O, C, R, best_points1, best_points2)
+        P = GetProjectionMatrix(C, R, K)
+        U_pred = World2Image(X0, P)
+        ErrorPreOpt = ReprojectionError(U_pred, best_points2)
+        
+        # print(f"Error Pre-Optimization: {ErrorPreOpt.mean()}")
+
+        nonlinearDepth = NonLinearTriangulation(X0, K, C_O, R_O, C, R, best_points1, best_points2)
+        
+        TotalDepthPoints.append(nonlinearDepth)
+        
+        
+    print(Poses)
+    
+    Plot3DPointSets(TotalDepthPoints, ['brown','blue','pink','purple'], ['Pose 1', 'Pose 2', 'Pose 3', 'Pose 4'], 
+                    [-30, 30], [-30, 30], 'points from all poses')
+        
+        
+
+   
+            
+        
+    
+    
+    
     
     
 if __name__ == "__main__":
