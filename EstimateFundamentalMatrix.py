@@ -1,10 +1,4 @@
-# Fundamental matrix is a 3x3 matrix (rank = 2) describing the epipolar geometry of stereo view
-# To find F we need at least 8 pairs of points x1, x2
-# x2.T @ F @ x1 = 0
-# Find it by solving an algebraic least squares problem Ax = 0
-
 import numpy as np
-import random
 import cv2
 import matplotlib.pyplot as plt
 from LinAlgTools import *

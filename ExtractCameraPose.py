@@ -5,7 +5,8 @@ def ExtractCameraPose(E):
     Args:
         E: Essential matrix
     Returns:
-        Camera poses
+        centers: Came centers
+        rotations: Camera rotations
     """
     W = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
     U, _, Vt = np.linalg.svd(E)

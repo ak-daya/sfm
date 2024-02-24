@@ -12,11 +12,15 @@ def LinearTriangulation(K, C1, R1, C2, R2, X1, X2):
     and a relative camera pose located at camera center C, with rotation R,
     using linear least squares (algebraic minimization)
     
+    K: Camera intrinsics matrix
+    C1: Camera center 1 relative to itself
+    R1: Camera rotation 1 relative to itself
     C: Camera center 2 relative to center 1
     R: Camera rotation 2 relative to center 1
-    K: Camera intrinsics matrix
     x1: Correspondence set 1
     x2: Correspondence set 2
+
+    depthPts: Set of estimated 3D world points
     """
     # Homogenize
     X1_hom = Homogenize(X1)

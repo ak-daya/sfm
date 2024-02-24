@@ -85,16 +85,18 @@ def NonLinearTriangulation(X0, K, C1, R1, C2, R2, X1, X2):
     Triangulates a set of 3D points w.r.t. a camera frame at origin (0,0,0),
     given the intrinsic matrix K, a set of correspondences X1 and X2, 
     and a relative camera pose located at camera center C, with rotation R,
-	using non-linear reprojection error minimization
+    using linear least squares (algebraic minimization)
     
-    camera_params:
-        K: Camera intrinsics matrix
-        C1: Camera center 1
-        R1: Camera rotation 1
-        C2: Camera center 2
-        R2: Camera rotation 2
+	X0: Estimated 3D World points
+    K: Camera intrinsics matrix
+    C1: Camera center 1 relative to itself
+    R1: Camera rotation 1 relative to itself
+    C: Camera center 2 relative to center 1
+    R: Camera rotation 2 relative to center 1
     x1: Correspondence set 1
     x2: Correspondence set 2
+
+    worldPts: Set of estimated 3D world points
     """
 	print("Optimizing non-linear triangulation...")
 

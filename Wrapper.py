@@ -18,6 +18,7 @@ from Visualization import *
 from DataLoader import *   
 from LinearTriangulation import *   
 from NonlinearTriangulation import *
+from PnPRANSAC import *
 
 def main():
     # Read in images, correspondences, intrinsic matrix
@@ -110,18 +111,38 @@ def main():
     # Check cheirality condition
     C, R, linearDepth = DisambiguateCameraPose(C_s, R_s, linearDepthPts)
 
-    print(f"C: \n{C}")
-    print(f"R: \n{R}")
-
     # Non-linear Triangulation
     X0 = linearDepth
 
-    nonlinearDepthPts = NonLinearTriangulation(X0, K, C_O, R_O, C, R, best_points1, best_points2)
+    nonlinearDepth = NonLinearTriangulation(X0, K, C_O, R_O, C, R, best_points1, best_points2)
 
     # Visualize Linear and Non-Linear Triangulation
-    Plot3DPointSets([X0, nonlinearDepthPts], ['blue','red'], ['Linear', 'Non-Linear'], 
+    Plot3DPointSets([X0, nonlinearDepth], ['blue','red'], ['Linear', 'Non-Linear'], 
                     [-20, 20], [-5, 30], 'Linear and Non-Linear Triangulation')
+    
+    
+    P1 = GetProjectionMatrix(C_O, R_O, K)
+    P2 = GetProjectionMatrix(C, R, K)
+    P = [P1, P2]
 
+    viz_linear = ["Linear_Tri_Img1","Linear_Tri_Img2"]
+    viz_nonlinear = ["nonLinear_Tri_Img1","nonLinear_Tri_Img2"]
+
+    for i in range(2):
+        img = images[i]
+        
+        linear_tri_uv = World2Image(linearDepth, P[i])
+        nonlinear_tri_uv = World2Image(nonlinearDepth, P[i])
+
+        linear_tri_uv = np.rint(linear_tri_uv).astype(np.uint16)
+        nonlinear_tri_uv = np.rint(nonlinear_tri_uv).astype(np.uint16)
+
+        Plot3DReconstruction(img, linear_tri_uv, viz_linear[i])
+        Plot3DReconstruction(img, nonlinear_tri_uv, viz_nonlinear[i])
+
+    Plot3DCameraView(nonlinearDepth, [R], [C], 'blue', '', [-20, 20], [-5, 30], "Estimated 3D Points and Camera Pose")
+
+    # 
     # print((X0 - nonlinearDepthPts)[:5])
     # print(np.linalg.norm(X0 - nonlinearDepthPts))
     
@@ -135,50 +156,8 @@ def main():
 
     # best_pts3d = depthpointsCheralityCheck[max_index]
 
-    """WIP
+    
     # Images 2-5
-    for img_num in range(3, 6):
-
-        coord_pair = np.array(returnpairs(Matchpairs, [1,img_num]))
-        coordpairs1 = coord_pair[:,0,:] #[pair[0] for pair in coord_pair]
-        coordpairs2 = coord_pair[:,1,:] #[pair[0] for pair in coord_pair]
-
-        best_points_1_1, best_points_1_i = OutlierRejectionRANSAC(coordpairs1, coordpairs2, break_percentage=0.9)
-
-        u_v_1_12 = best_points1
-        u_v_1_1i = best_points_1_1
-        u_v_1_i = best_points_1_i
-
-        uv_1i, world_points_1_i = find_matching_points(X_points_corrected, u_v_1_12, u_v_1_1i, u_v_1_i)
-
-        #
-
-        R_new, C_new = PnP_RANSAC(K, uv_1i, world_points_1_i)
-
-        if np.linalg.det(R_new) < 0:    # enforce right-hand coordinate system
-            R_new = -R_new
-            C_new = -C_new
-
-        R_opt, C_opt = nonlinear_PnP(K, uv_1i, world_points_1_i, R_new, C_new)
-
-        R_set.append(R_opt)
-        C_set.append(C_opt)
-
-        X_new_linear = linear_triangulation(K, C_opt, R_opt, best_matched_points_1_i)
-        X_points_nonlin = non_linear_triangulation(K, C_opt, R_opt, best_matched_points_1_i, X_new_linear)
-        X_points_set.append(X_points_nonlin)
-
-        # Visibility matrix
-        # V = build_visibility_matrix(X_points_set[0], feature_flags, image_num, idx)
-        # print("V mat for image ", str(image_num), " : ", V)
-
-    visualize_points_camera_poses(X_points_set[0], R_set, C_set)
-    """
-            
-        
-    
-    
-    
     
     
 if __name__ == "__main__":
