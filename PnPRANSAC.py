@@ -4,11 +4,20 @@ from LinearPnP import linear_pnp
 
 
 def PnpRansac(K, pts2d, pts3d, n_iters=1000, threshold = 1e-10):
+    
+    
+    # for i in range(len(pts2d)):
+    #     if pts2d[i] == None:
+    #         pts2d.pop(i)
+    #         pts3d.pop(i)
+            
+    # pts2d = np.array(pts2d)
     H_pts3d = Homogenize(pts3d)
     u, v = pts2d[:,0], pts2d[:,1]
     max_inliers = []
     for iter in range(n_iters):
         rnd_idx = np.random.choice(pts3d.shape[0], 6, replace=False)
+        
         rnd_pts2d = pts2d[rnd_idx]
         rnd_pts3d = H_pts3d[rnd_idx]
         
