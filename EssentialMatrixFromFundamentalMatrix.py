@@ -1,6 +1,6 @@
 import numpy as np
 
-def EssentialMatrix(K, F):
+def EssentialMatrixFromFundamentalMatrix(K, F):
     """
     Args:
         K: Camera intrinsic matrix

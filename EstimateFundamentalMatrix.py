@@ -7,6 +7,7 @@ import numpy as np
 import random
 import cv2
 import matplotlib.pyplot as plt
+from LinAlgTools import *
 
 def NormalizeCoordinates(points):
 	centroid = np.mean(points, axis=0)
@@ -16,16 +17,6 @@ def NormalizeCoordinates(points):
 	normalizedPoints = Homogenize(points) @ transform.T
 	
 	return normalizedPoints, transform
-
-def Homogenize(coordinates):
-	# Adds a dimension of 1
-	if len(coordinates.shape) == 1:
-		hom_coordinates = np.ones((coordinates.shape[0] + 1))
-		hom_coordinates[:-1] = coordinates
-	else:
-		hom_coordinates = np.ones((coordinates.shape[0], coordinates.shape[1]+1))
-		hom_coordinates[:, :-1] = coordinates
-	return hom_coordinates
 
 def EstimateFundamentalMatrix(points1, points2, normalize=False):
 	"""

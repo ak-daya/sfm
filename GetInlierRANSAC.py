@@ -1,6 +1,7 @@
 import numpy as np
 import random
-from EstimateFundamentalMatrix import EstimateFundamentalMatrix, Homogenize
+from EstimateFundamentalMatrix import EstimateFundamentalMatrix
+from LinAlgTools import *
 
 
 def OutlierRejectionRANSAC(points1, points2, iter=1000, eps=0.05, break_percentage=0.9):

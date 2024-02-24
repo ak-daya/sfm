@@ -1,6 +1,6 @@
 import numpy as np
 
-def CameraPoseEstimation(E):
+def ExtractCameraPose(E):
     """
     Args:
         E: Essential matrix
@@ -53,4 +53,4 @@ def CameraPoseEstimation(E):
     # print(f"R4: {rotations[3]}")
 
     # Return the updated rotation matrices and camera centers
-    return rotations, centers
+    return centers, rotations

@@ -1,13 +1,27 @@
-from LinearTriangulation import TriangulateDepth_Linear
+import numpy as np
 
-def CheiralityCondition(C, R, X):
-    """
-    Computes whether the world point X lies in front of
-    the camera's z-axis whose pose is given by 
-    camera center C, and rotation R
+def DisambiguateCameraPose(C_set, R_set, Depth_set):
+    count = []
+    for i in range(4):
+        points = Depth_set[i]
+        C = C_set[i]
+        C = C.reshape(3,)
+        R = R_set[i]
 
-    C: Camera position
-    R: Camera rotation
-    X: World point w.r.t. some camera coordinate system
-    """
-    return (R[-1, :] @ (X - C) > 0)
+        # Cheirality condition
+        diff = points - C
+        cheirality = diff @ R[:,-1]
+        z_col = points[:,-1]
+
+        condition_1 = cheirality > 0
+        condition_2 = z_col > 0
+
+        count.append((condition_1 * condition_2).sum())
+
+    best_idx = np.argmax(count)
+    best_C = C_set[best_idx]
+    best_R = R_set[best_idx]
+    best_depth = Depth_set[best_idx]
+    
+    return best_C, best_R, best_depth
+    
